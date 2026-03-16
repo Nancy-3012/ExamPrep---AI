@@ -15,3 +15,6 @@ ExamPrep AI uses Large Language Models combined with Retrieval-Augmented Generat
 - Retrieval-Augmented Generation (RAG)
 - Vector Databases
 - Streamlit (UI)
+
+
+Project tested on GitHub commit verification.
