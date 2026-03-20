@@ -5,29 +5,51 @@ class QuestionGenerator:
 
     def generate_questions(self, context):
 
-        sentences = context.split(".")
+        sentences = re.split(r'(?<=[.!?]) +', context)
+
         topics = []
 
         for sentence in sentences:
 
             sentence = sentence.strip()
 
-            # Remove very short sentences
-            if len(sentence) < 40:
+            # Skip short sentences
+            if len(sentence.split()) < 8:
                 continue
 
-            # Skip slide numbers / formatting
-            if re.search(r"\d+ ---", sentence):
-                continue
-
-            # Skip professor names / headers
+            # Skip headers
             if "Professor" in sentence or "University" in sentence:
                 continue
 
-            words = sentence.split()[:8]
-            topic = " ".join(words)
+            if "Page" in sentence:
+                continue
+
+            # Remove garbage words
+            if any(word in sentence.lower() for word in [
+                "example", "reference", "summary", "kute", "http", "www"
+            ]):
+                continue
+
+            # Keep only meaningful sentences
+            if not any(word in sentence.lower() for word in [
+                "is", "are", "refers", "means", "defined"
+            ]):
+                continue
+
+            # Clean sentence
+            sentence = re.sub(r'[^a-zA-Z0-9\s]', '', sentence)
+
+            # Fix broken words
+            sentence = sentence.replace("featurespredictors", "features predictors")
+
+            # Shorten sentence
+            words = sentence.split()
+            topic = " ".join(words[:10]).capitalize()
 
             topics.append(topic)
+
+        # Remove duplicates + limit
+        topics = list(set(topics))[:10]
 
         mcq = []
         short_answer = []
@@ -35,10 +57,12 @@ class QuestionGenerator:
 
         for topic in topics:
 
-            distractors = random.sample(
-                [t for t in topics if t != topic],
-                min(3, len(topics) - 1)
-            )
+            other_topics = [t for t in topics if t != topic]
+
+            if len(other_topics) >= 3:
+                distractors = random.sample(other_topics, 3)
+            else:
+                distractors = other_topics
 
             options = distractors + [topic]
             random.shuffle(options)
@@ -49,7 +73,7 @@ class QuestionGenerator:
                 "answer": topic
             })
 
-            short_answer.append(f"Explain {topic}.")
-            viva.append(f"What do you understand by {topic}?")
+            short_answer.append(f"Explain: {topic}.")
+            viva.append(f"What do you understand by: {topic}?")
 
         return mcq, short_answer, viva

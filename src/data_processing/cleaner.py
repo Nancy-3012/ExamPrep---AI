@@ -1,17 +1,14 @@
 import re
 
-def clean_text(text: str) -> str:
-    """
-    Clean extracted text.
-    """
+def clean_text(text):
 
-    if not text:
-        return ""
+    # Remove extra spaces
+    text = re.sub(r'\s+', ' ', text)
 
-    # remove extra whitespace
-    text = re.sub(r"\s+", " ", text)
+    # Remove weird characters
+    text = re.sub(r'[^a-zA-Z0-9., ]', '', text)
 
-    # remove strange characters
-    text = re.sub(r"[^\w\s.,()-]", "", text)
+    # Fix broken sentences
+    text = text.replace("  ", " ")
 
     return text.strip()
