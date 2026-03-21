@@ -15,15 +15,14 @@ def reset_app():
     for key in list(st.session_state.keys()):
         del st.session_state[key]
 
-# ------------------ SESSION STATE ------------------
+# ------------------ SESSION ------------------
 if "step" not in st.session_state:
     st.session_state.step = 1
 
-# ------------------ STEP 1: USER INFO ------------------
+# ------------------ STEP 1 ------------------
 if st.session_state.step == 1:
 
     st.title("👋 Welcome to ExamPrep AI")
-    st.markdown("### Your Smart Study & Quiz Assistant")
 
     name = st.text_input("Enter your name")
     subject = st.text_input("Enter subject")
@@ -33,17 +32,11 @@ if st.session_state.step == 1:
             st.session_state.name = name
             st.session_state.subject = subject
             st.session_state.step = 2
-        else:
-            st.warning("Please fill all fields")
 
-# ------------------ STEP 2: MODE SELECTION ------------------
+# ------------------ STEP 2 ------------------
 elif st.session_state.step == 2:
 
-    st.title(f"Welcome {st.session_state.name} 👋")
-    st.markdown(f"### Subject: {st.session_state.subject}")
-
-    st.markdown("---")
-    st.subheader("Choose Mode")
+    st.title(f"Welcome {st.session_state.name}")
 
     col1, col2 = st.columns(2)
 
@@ -57,14 +50,12 @@ elif st.session_state.step == 2:
             st.session_state.mode = "quiz"
             st.session_state.step = 3
 
-    # 🔙 BACK BUTTON
     if st.button("🔙 Back"):
         st.session_state.step = 1
 
-# ------------------ STEP 3: MAIN APP ------------------
+# ------------------ STEP 3 ------------------
 elif st.session_state.step == 3:
 
-    # 🔙 NAVIGATION BUTTONS
     col1, col2 = st.columns(2)
 
     with col1:
@@ -76,107 +67,117 @@ elif st.session_state.step == 3:
             reset_app()
 
     st.title("📘 ExamPrep AI")
-    st.markdown(f"👤 User: **{st.session_state.name}**")
-    st.markdown(f"📚 Subject: **{st.session_state.subject}**")
-    st.markdown(f"⚙ Mode: **{st.session_state.mode.upper()}**")
 
-    st.markdown("---")
+    uploaded_file = st.file_uploader("Upload PDF", type=["pdf"])
+    num_questions = st.selectbox("Number of Questions", [5, 10, 15])
+    query = st.text_input("Enter topic")
 
-    uploaded_file = st.file_uploader("📂 Upload PDF", type=["pdf"])
-    num_questions = st.selectbox("📊 Number of Questions", [5, 10, 15])
-    query = st.text_input("🔍 Enter topic")
+    # -------- GENERATE --------
+    if st.button("Start"):
 
-    generate = st.button("🚀 Start")
+        if uploaded_file and query:
 
-    if uploaded_file is not None:
+            with open("temp.pdf", "wb") as f:
+                f.write(uploaded_file.read())
 
-        with open("temp.pdf", "wb") as f:
-            f.write(uploaded_file.read())
+            raw_text = load_pdf("temp.pdf")
+            cleaned_text = clean_text(raw_text)
 
-        # Step 1: Load + Clean
-        raw_text = load_pdf("temp.pdf")
-        cleaned_text = clean_text(raw_text)
+            chunker = TextChunker()
+            chunks = chunker.split_text(cleaned_text)
 
-        # Step 2: Chunking
-        chunker = TextChunker()
-        chunks = chunker.split_text(cleaned_text)
-
-        st.success(f"📄 Document processed into {len(chunks)} chunks")
-
-        if len(chunks) > 0:
-
-            # Step 3: Embeddings
             embedder = Embedder()
             embeddings = embedder.embed_texts(chunks)
 
-            # Step 4: Vector DB
             vector_db = VectorStore(len(embeddings[0]))
             vector_db.add_embeddings(embeddings, chunks)
 
-            # Step 5: Retriever
             retriever = Retriever(vector_db, embedder)
+            results = retriever.retrieve(query)
 
-            if generate and query:
+            context = "\n".join(results)
 
-                with st.spinner("Processing... ⏳"):
+            generator = QuestionGenerator()
+            mcq, short_answer, viva = generator.generate_questions(context)
 
-                    results = retriever.retrieve(query)
-                    context = "\n".join(results)
+            st.session_state.mcq = mcq[:num_questions]
+            st.session_state.generated = True
+            st.session_state.current_q = 0
+            st.session_state.score = 0
+            st.session_state.answers = {}
 
-                    generator = QuestionGenerator()
-                    mcq, short_answer, viva = generator.generate_questions(context)
+    # -------- AFTER GENERATION --------
+    if st.session_state.get("generated"):
 
-                    st.success("✅ Done!")
+        # ------------------ PREP MODE ------------------
+        if st.session_state.mode == "prep":
 
-                    # ------------------ PREPARATION MODE ------------------
-                    if st.session_state.mode == "prep":
+            for i, q in enumerate(st.session_state.mcq):
+                st.markdown(f"### Q{i+1}. {q['question']}")
+                for opt in q["options"]:
+                    st.write(opt)
+                st.success(f"Answer: {q['answer']}")
+                st.markdown("---")
 
-                        with st.expander("📘 MCQ Questions", expanded=True):
+        # ------------------ QUIZ MODE ------------------
+        else:
 
-                            for i, q in enumerate(mcq[:num_questions]):
+            q_index = st.session_state.current_q
+            total = len(st.session_state.mcq)
 
-                                st.markdown(f"### Q{i+1}. {q['question']}")
+            # -------- QUIZ FINISHED --------
+            if q_index >= total:
 
-                                for j, opt in enumerate(q["options"]):
-                                    st.markdown(f"{chr(65+j)}) {opt}")
+                st.success("🎉 Quiz Completed!")
+                st.markdown(f"## 🏆 Score: {st.session_state.score}/{total}")
 
-                                st.markdown(f"**Answer:** {q['answer']}")
-                                st.markdown("---")
+                st.markdown("## 📊 Review Answers")
 
-                        with st.expander("✏ Short Answer Questions"):
-                            for q in short_answer[:num_questions]:
-                                st.write("- " + q)
+                for i, q in enumerate(st.session_state.mcq):
 
-                        with st.expander("🎤 Viva Questions"):
-                            for q in viva[:num_questions]:
-                                st.write("- " + q)
+                    user_ans = st.session_state.answers.get(i)
+                    correct_ans = q["answer"]
 
-                    # ------------------ QUIZ MODE ------------------
+                    st.markdown(f"### Q{i+1}. {q['question']}")
+
+                    st.write(f"Your Answer: {user_ans}")
+
+                    if user_ans == correct_ans:
+                        st.success("✅ Correct")
                     else:
+                        st.error(f"❌ Wrong | Correct: {correct_ans}")
 
-                        st.subheader("🎯 Quiz Time!")
+                    st.markdown("---")
 
-                        score = 0
+                st.stop()
 
-                        for i, q in enumerate(mcq[:num_questions]):
+            # -------- CURRENT QUESTION --------
+            question = st.session_state.mcq[q_index]
 
-                            st.markdown(f"### Q{i+1}. {q['question']}")
+            st.markdown(f"### Question {q_index+1} / {total}")
 
-                            user_ans = st.radio(
-                                "Choose your answer:",
-                                q["options"],
-                                key=f"q{i}"
-                            )
+            # NO DEFAULT SELECTION
+            selected = st.radio(
+                question["question"],
+                ["-- Select an option --"] + question["options"],
+                index=0,
+                key=f"q_{q_index}"
+            )
 
-                            if st.button(f"Submit Q{i+1}", key=f"btn{i}"):
+            # -------- NEXT BUTTON --------
+            if st.button("Next ➡"):
 
-                                if user_ans == q["answer"]:
-                                    st.success("✅ Correct!")
-                                    score += 1
-                                else:
-                                    st.error(f"❌ Wrong! Correct: {q['answer']}")
+                if selected == "-- Select an option --":
+                    st.warning("⚠ Please select an option")
+                else:
 
-                        st.markdown(f"### 🏆 Your Score: {score}/{num_questions}")
+                    st.session_state.answers[q_index] = selected
+
+                    if selected == question["answer"]:
+                        st.session_state.score += 1
+
+                    st.session_state.current_q += 1
+                    st.rerun()
 
 # ------------------ FOOTER ------------------
 st.markdown("---")
