@@ -13,43 +13,53 @@ class QuestionGenerator:
 
             sentence = sentence.strip()
 
-            # Skip short sentences
-            if len(sentence.split()) < 8:
+            # Skip short or too long sentences
+            if len(sentence.split()) < 8 or len(sentence.split()) > 25:
                 continue
 
-            # Skip headers
-            if "Professor" in sentence or "University" in sentence:
-                continue
-
-            if "Page" in sentence:
+            # Skip headers / junk
+            if any(x in sentence for x in ["Professor", "University", "Page"]):
                 continue
 
             # Remove garbage words
             if any(word in sentence.lower() for word in [
-                "example", "reference", "summary", "kute", "http", "www"
+                "example", "reference", "summary", "http", "www", "fig"
+            ]):
+                continue
+
+            # ❌ REMOVE COMMAND-LIKE / CHEAT SHEET TEXT
+            if any(cmd in sentence.lower() for cmd in [
+                "git", "http", "www", "command", "file", "commit"
             ]):
                 continue
 
             # Keep only meaningful sentences
             if not any(word in sentence.lower() for word in [
-                "is", "are", "refers", "means", "defined"
+                " is ", " are ", " refers ", " means ", " defined "
             ]):
                 continue
 
             # Clean sentence
             sentence = re.sub(r'[^a-zA-Z0-9\s]', '', sentence)
 
-            # Fix broken words
-            sentence = sentence.replace("featurespredictors", "features predictors")
-
-            # Shorten sentence
             words = sentence.split()
-            topic = " ".join(words[:10]).capitalize()
+
+            # Better topic (not just first 10 random words)
+            topic = " ".join(words[:6]).capitalize()
+
+            # Avoid weird topics
+            if len(topic) < 15:
+                continue
 
             topics.append(topic)
 
-        # Remove duplicates + limit
-        topics = list(set(topics))[:10]
+        # Remove duplicates + ensure enough variety
+        topics = list(set(topics))
+
+        if len(topics) < 4:
+            return [], [], []
+
+        topics = topics[:10]
 
         mcq = []
         short_answer = []
@@ -57,18 +67,19 @@ class QuestionGenerator:
 
         for topic in topics:
 
-            other_topics = [t for t in topics if t != topic]
+            # Better distractors (avoid very similar ones)
+            other_topics = [t for t in topics if t != topic and t[:10] != topic[:10]]
 
             if len(other_topics) >= 3:
                 distractors = random.sample(other_topics, 3)
             else:
-                distractors = other_topics
+                continue  # skip bad question
 
             options = distractors + [topic]
             random.shuffle(options)
 
             mcq.append({
-                "question": f"Which of the following best explains: {topic}?",
+                "question": f"Which concept best matches: {topic}?",
                 "options": options,
                 "answer": topic
             })

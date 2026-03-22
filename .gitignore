@@ -1,2 +1,16 @@
-test_pdf.py
-data/
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Temporary files
+temp.pdf
+*.log
+
+# User data
+users.json
+
+# OS junk
+.DS_Store
