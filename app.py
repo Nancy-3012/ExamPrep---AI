@@ -1,4 +1,4 @@
-# v1.6 - Sidebar icons and navigation
+# v1.7 - Timer CSS animations
 import streamlit as st
 import json
 import os
