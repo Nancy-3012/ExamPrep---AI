@@ -644,7 +644,7 @@ def main_app():
                 with st.spinner("Generating questions with LLaMA 3.3..."):
                     try:
                         generator = QuestionGenerator()
-                        mcq, short, viva = generator.generate_questions(context, num=num_questions)
+                        mcq, short, viva = generator.generate_questions(context, num_questions)
                         st.session_state.mcq = mcq[:num_questions]
                         st.session_state.short = short[:num_questions]
                         st.session_state.viva = viva[:num_questions]

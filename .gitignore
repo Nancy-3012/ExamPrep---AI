@@ -14,3 +14,5 @@ users.json
 
 # OS junk
 .DS_Store
+
+.env
