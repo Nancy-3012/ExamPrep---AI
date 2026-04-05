@@ -1,4 +1,4 @@
-# v1.2 - Added score history page
+# v1.3 - Added progress tracker
 import streamlit as st
 import json
 import os
