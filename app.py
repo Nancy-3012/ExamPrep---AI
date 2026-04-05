@@ -1,4 +1,3 @@
-# v1.7 - Timer CSS animations
 import streamlit as st
 import json
 import os
@@ -312,6 +311,8 @@ defaults = {
     "mcq_attempted": 0,
     "short_attempted": 0,
     "viva_attempted": 0,
+    # Day 2: Difficulty filter
+    "mcq_difficulty_filter": "All",
 }
  
 for k, v in defaults.items():
@@ -453,6 +454,7 @@ def sidebar():
                 ("Answer Evaluation", "Evaluate", "🎯"),
                 ("Flashcards", "Flashcards", "🃏"),
                 ("Export Questions", "Export", "⬇️"),
+                ("Analytics", "Analytics", "📊"),
             ]
             for label, page, icon in tools:
                 if st.button(f"{icon} {label}"):
@@ -639,13 +641,76 @@ def main_app():
             st.warning("No questions yet. Upload a PDF first.")
             return
  
-        # Track how many MCQs the user viewed
-        st.session_state.mcq_attempted = len(st.session_state.mcq)
+        # ---------------- DIFFICULTY FILTER ----------------
+        # Assign difficulty to each MCQ based on index if not already assigned
+        mcq_list = st.session_state.mcq
+        difficulty_labels = ["Easy", "Medium", "Hard"]
+        difficulty_colors = {"Easy": "#22c55e", "Medium": "#f59e0b", "Hard": "#ef4444"}
  
-        for i, q in enumerate(st.session_state.mcq):
+        for i, q in enumerate(mcq_list):
+            if "difficulty" not in q:
+                q["difficulty"] = difficulty_labels[i % 3]
+ 
+        col_filter, col_count = st.columns([2, 1])
+        with col_filter:
+            selected_difficulty = st.selectbox(
+                "🎯 Filter by Difficulty",
+                ["All", "Easy", "Medium", "Hard"],
+                index=["All", "Easy", "Medium", "Hard"].index(
+                    st.session_state.mcq_difficulty_filter
+                )
+            )
+            st.session_state.mcq_difficulty_filter = selected_difficulty
+ 
+        filtered_mcq = mcq_list if selected_difficulty == "All" else [
+            q for q in mcq_list if q.get("difficulty") == selected_difficulty
+        ]
+ 
+        with col_count:
+            st.markdown(f"""
+            <div style="background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.3);
+            border-radius:10px; padding:12px; text-align:center; margin-top:4px;">
+                <span style="color:#8b5cf6; font-weight:700; font-size:1.3rem;">{len(filtered_mcq)}</span>
+                <span style="color:#64748b; font-size:0.8rem;"> questions</span>
+            </div>
+            """, unsafe_allow_html=True)
+ 
+        # Difficulty count badges
+        easy_c = sum(1 for q in mcq_list if q.get("difficulty") == "Easy")
+        med_c  = sum(1 for q in mcq_list if q.get("difficulty") == "Medium")
+        hard_c = sum(1 for q in mcq_list if q.get("difficulty") == "Hard")
+        st.markdown(f"""
+        <div style="margin-bottom:20px;">
+            <span style="background:rgba(34,197,94,0.15); color:#22c55e; border:1px solid rgba(34,197,94,0.3);
+            padding:4px 12px; border-radius:20px; font-size:0.8rem; font-weight:600; margin-right:8px;">
+            🟢 Easy: {easy_c}</span>
+            <span style="background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.3);
+            padding:4px 12px; border-radius:20px; font-size:0.8rem; font-weight:600; margin-right:8px;">
+            🟡 Medium: {med_c}</span>
+            <span style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3);
+            padding:4px 12px; border-radius:20px; font-size:0.8rem; font-weight:600;">
+            🔴 Hard: {hard_c}</span>
+        </div>
+        """, unsafe_allow_html=True)
+ 
+        # Track how many MCQs the user viewed
+        st.session_state.mcq_attempted = len(filtered_mcq)
+ 
+        if not filtered_mcq:
+            st.info("No questions match this difficulty filter.")
+            return
+ 
+        for i, q in enumerate(filtered_mcq):
+            diff = q.get("difficulty", "Medium")
+            diff_color = difficulty_colors[diff]
             st.markdown(f"""
             <div class="question-card">
-                <div class="question-number">Question {i+1}</div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <div class="question-number">Question {i+1}</div>
+                    <span style="background:rgba(0,0,0,0.3); color:{diff_color};
+                    border:1px solid {diff_color}40; padding:2px 10px;
+                    border-radius:12px; font-size:0.75rem; font-weight:600;">{diff}</span>
+                </div>
                 <div class="question-text">{q["question"]}</div>
             </div>
             """, unsafe_allow_html=True)
@@ -1175,6 +1240,14 @@ def main_app():
         st.markdown("**Preview:**")
         st.code(content[:1000] + ("..." if len(content) > 1000 else ""), language="markdown")
  
+    # ---------------- ANALYTICS (stub for day2 v1) ----------------
+    elif page == "Analytics":
+        st.markdown("""
+        <div class="page-title">📊 Analytics</div>
+        <div class="page-subtitle">Coming soon — detailed study analytics</div>
+        """, unsafe_allow_html=True)
+        st.info("Full analytics will be available after completing more quizzes.")
+ 
     # ---------------- RESULT ----------------
     elif page == "Result":
         total = len(st.session_state.mcq)
@@ -1242,3 +1315,4 @@ if not st.session_state.logged_in:
     login_page()
 else:
     main_app()
+ 
