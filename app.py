@@ -1,4 +1,4 @@
-# v1.5 - Enhanced dashboard
+# v1.6 - Sidebar icons and navigation
 import streamlit as st
 import json
 import os
