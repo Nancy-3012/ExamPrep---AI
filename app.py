@@ -313,6 +313,10 @@ defaults = {
     "viva_attempted": 0,
     # Day 2: Difficulty filter
     "mcq_difficulty_filter": "All",
+    # Day 2 v2: Study streak
+    "streak_days": 0,
+    "last_study_date": "",
+    "total_study_days": 0,
 }
  
 for k, v in defaults.items():
@@ -344,6 +348,31 @@ def signup(username, password):
     users[username] = password
     save_users(users)
     return True
+ 
+ 
+# ---------------- STREAK TRACKER ----------------
+def update_streak():
+    """Call once per session when user does something productive (upload or quiz)."""
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    last = st.session_state.last_study_date
+ 
+    if last == today:
+        return  # Already counted today
+ 
+    if last == "":
+        # First time ever
+        st.session_state.streak_days = 1
+    else:
+        last_dt = datetime.datetime.strptime(last, "%Y-%m-%d")
+        today_dt = datetime.datetime.strptime(today, "%Y-%m-%d")
+        diff = (today_dt - last_dt).days
+        if diff == 1:
+            st.session_state.streak_days += 1   # Consecutive day
+        elif diff > 1:
+            st.session_state.streak_days = 1    # Streak broken
+ 
+    st.session_state.last_study_date = today
+    st.session_state.total_study_days += 1
  
  
 # ---------------- LOGIN PAGE ----------------
@@ -424,8 +453,15 @@ def sidebar():
         """, unsafe_allow_html=True)
  
         if st.session_state.username:
+            streak = st.session_state.streak_days
+            streak_color = "#f59e0b" if streak >= 3 else "#94a3b8"
             st.markdown(f"""
             <div class="user-badge">👤 {st.session_state.username}</div>
+            <div style="text-align:center; padding:6px 12px; background:rgba(245,158,11,0.1);
+            border:1px solid rgba(245,158,11,0.2); border-radius:8px; margin-bottom:12px;
+            font-size:0.85rem; color:{streak_color}; font-weight:600;">
+                🔥 {streak} day streak
+            </div>
             """, unsafe_allow_html=True)
  
         st.markdown('<div class="sidebar-section">Navigation</div>', unsafe_allow_html=True)
@@ -496,7 +532,7 @@ def main_app():
             (st.session_state.doc_count, "Documents"),
             (st.session_state.question_count, "Questions"),
             (st.session_state.quiz_count, "Quizzes"),
-            (len(st.session_state.score_history), "Quiz History"),
+            (f"🔥 {st.session_state.streak_days}", "Day Streak"),
         ]
         for col, (num, label) in zip([col1, col2, col3, col4], metrics):
             with col:
@@ -614,6 +650,7 @@ def main_app():
                         st.session_state.generated = True
                         st.session_state.doc_count += 1
                         st.session_state.question_count += num_questions
+                        update_streak()
                         st.balloons()
                         st.success(f"✅ {num_questions * 3} questions generated successfully!")
                         st.info("Use the sidebar to explore MCQs, Timed Quiz, Flashcards and more!")
@@ -1269,6 +1306,7 @@ def main_app():
         })
         st.session_state.quiz_count += 1
         st.session_state.quiz_start_time = None
+        update_streak()
  
         st.markdown(f"""
         <div style="text-align:center; padding: 60px 20px;">
@@ -1315,4 +1353,3 @@ if not st.session_state.logged_in:
     login_page()
 else:
     main_app()
- 
